@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  OWNER
+}
+
+enum DepositStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  PAID
+  REJECTED
+}
+
+enum LedgerType {
+  DEPOSIT
+  WITHDRAWAL
+  MANUAL_CREDIT
+  MANUAL_DEBIT
+  PAYMENT
+}
+
+model User {
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  username           String         @unique
+  passwordHash       String
+  emailVerifiedAt    DateTime?
+  googleId           String?        @unique
+  role               UserRole       @default(USER)
+  apiKey             String         @unique
+  balance            Int            @default(0)
+  tempPassword       Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  deposits           Deposit[]
+  withdrawals        Withdrawal[]
+  otpCodes           OtpCode[]
+  notifications      Notification[]
+  ledger             WalletLedger[]
+}
+
+model OtpCode {
+  id         String   @id @default(cuid())
+  email      String
+  code       String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model Deposit {
+  id             String        @id @default(cuid())
+  trxId          String        @unique
+  amount         Int
+  feeAdmin       Int           @default(0)
+  status         DepositStatus @default(PENDING)
+  source         String        @default("QRIS")
+  note           String?
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  confirmedAt    DateTime?
+  createdAt      DateTime      @default(now())
+}
+
+model Withdrawal {
+  id                 String           @id @default(cuid())
+  requestId          String           @unique
+  amount             Int
+  feeAdmin           Int
+  payoutMethod       String
+  payoutAccountName  String
+  payoutAccountNo    String
+  status             WithdrawalStatus @default(PENDING)
+  userId             String
+  user               User             @relation(fields: [userId], references: [id])
+  confirmedAt        DateTime?
+  createdAt          DateTime         @default(now())
+}
+
+model WalletLedger {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id])
+  type        LedgerType
+  amount      Int
+  description String
+  refId       String?
+  createdAt   DateTime   @default(now())
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model SystemConfig {
+  key        String   @id
+  value      String
+  updatedAt  DateTime @updatedAt
+}
